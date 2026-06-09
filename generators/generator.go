@@ -1,8 +1,13 @@
-package main
+package generators
 
-import "path/filepath"
+import (
+	"fmt"
+	"path/filepath"
+)
 
 func applyTheme(theme *Theme, outputDir string, wallpaperDir string) error {
+	notifyInfo("Rainbeau", fmt.Sprintf("Applying theme %s", theme.Name))
+
 	globErr := expandWallpaperGlobs(theme, wallpaperDir)
 	if globErr != nil {
 		generatorLogger.Error("Failed to expand wallpaper globs", "error", globErr)

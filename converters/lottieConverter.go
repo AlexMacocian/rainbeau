@@ -1,4 +1,4 @@
-package main
+package converters
 
 /*
 #cgo linux LDFLAGS: -lrlottie
@@ -52,7 +52,7 @@ func convertLotties(lottiePaths []string, wallpapersDir string, bgHex string, li
 	line := normalizeHex(lineHex)
 
 	if _, err := exec.LookPath("ffmpeg"); err != nil {
-		lottieLogger.Warn("ffmpeg not found on PATH; install it to enable Lottie wallpapers", "error", err)
+		lottieLogger.Error("ffmpeg not found on PATH; install it to enable Lottie wallpapers", "error", err)
 		return nil
 	}
 
@@ -60,12 +60,12 @@ func convertLotties(lottiePaths []string, wallpapersDir string, bgHex string, li
 
 	cacheDir, err := lottieCacheDir()
 	if err != nil {
-		lottieLogger.Warn("failed to resolve Lottie cache directory", "error", err)
+		lottieLogger.Error("failed to resolve Lottie cache directory", "error", err)
 		return nil
 	}
 
 	if err := os.MkdirAll(cacheDir, 0o755); err != nil {
-		lottieLogger.Warn("failed to create Lottie cache directory", "path", cacheDir, "error", err)
+		lottieLogger.Error("failed to create Lottie cache directory", "path", cacheDir, "error", err)
 		return nil
 	}
 
@@ -77,7 +77,7 @@ func convertLotties(lottiePaths []string, wallpapersDir string, bgHex string, li
 		}
 
 		if _, err := os.Stat(sourcePath); err != nil {
-			lottieLogger.Warn("Lottie source not found", "path", lottiePath, "error", err)
+			lottieLogger.Error("Lottie source not found", "path", lottiePath, "error", err)
 			continue
 		}
 
@@ -91,13 +91,15 @@ func convertLotties(lottiePaths []string, wallpapersDir string, bgHex string, li
 		}
 
 		lottieLogger.Info("Rendering Lottie", "source", lottiePath, "output", mp4Abs)
+		progress := startProgressNotification("Theme Engine", fmt.Sprintf("Generating Lottie video for %s (this may take some time)...", stem))
 
 		sourceJSONPath := sourcePath
 		extracted := ""
 		if strings.EqualFold(filepath.Ext(sourcePath), ".lottie") {
 			extracted, err = extractDotLottieJSON(sourcePath)
 			if err != nil {
-				lottieLogger.Warn("could not extract animation JSON from dotLottie file", "path", lottiePath, "error", err)
+				progress.close()
+				lottieLogger.Error("could not extract animation JSON from dotLottie file", "path", lottiePath, "error", err)
 				continue
 			}
 			sourceJSONPath = extracted
@@ -106,15 +108,17 @@ func convertLotties(lottiePaths []string, wallpapersDir string, bgHex string, li
 		prepared := prepareLottieJSON(sourceJSONPath, line, bg)
 
 		if !runLottieConvert(&rlottie, prepared, mp4Abs) {
+			progress.close()
 			if err := os.Remove(mp4Abs); err != nil && !errors.Is(err, os.ErrNotExist) {
-				lottieLogger.Warn("failed to remove partial Lottie output", "path", mp4Abs, "error", err)
+				lottieLogger.Error("failed to remove partial Lottie output", "path", mp4Abs, "error", err)
 			}
-			lottieLogger.Warn("failed to render Lottie", "path", lottiePath)
+			lottieLogger.Error("failed to render Lottie", "path", lottiePath)
 			cleanupLottieTempFiles(extracted, prepared, sourceJSONPath)
 			continue
 		}
 
 		cleanupLottieTempFiles(extracted, prepared, sourceJSONPath)
+		progress.close()
 		outputs = append(outputs, mp4Abs)
 	}
 
@@ -141,7 +145,7 @@ func extractDotLottieJSON(dotLottiePath string) (string, error) {
 	}
 	defer func() {
 		if err := reader.Close(); err != nil {
-			lottieLogger.Warn("failed to close dotLottie archive", "path", dotLottiePath, "error", err)
+			lottieLogger.Error("failed to close dotLottie archive", "path", dotLottiePath, "error", err)
 		}
 	}()
 
@@ -158,17 +162,17 @@ func extractDotLottieJSON(dotLottiePath string) (string, error) {
 		dst, err := os.CreateTemp("", "lottie-*.json")
 		if err != nil {
 			if closeErr := src.Close(); closeErr != nil {
-				lottieLogger.Warn("failed to close dotLottie entry", "path", file.Name, "error", closeErr)
+				lottieLogger.Error("failed to close dotLottie entry", "path", file.Name, "error", closeErr)
 			}
 			return "", err
 		}
 
 		if _, err := io.Copy(dst, src); err != nil {
 			if closeErr := src.Close(); closeErr != nil {
-				lottieLogger.Warn("failed to close dotLottie entry", "path", file.Name, "error", closeErr)
+				lottieLogger.Error("failed to close dotLottie entry", "path", file.Name, "error", closeErr)
 			}
 			if closeErr := dst.Close(); closeErr != nil {
-				lottieLogger.Warn("failed to close temp Lottie JSON after copy error", "path", dst.Name(), "error", closeErr)
+				lottieLogger.Error("failed to close temp Lottie JSON after copy error", "path", dst.Name(), "error", closeErr)
 			}
 			removeLottieTempFile(dst.Name(), "failed to remove temp Lottie JSON after copy error")
 			return "", err
@@ -176,7 +180,7 @@ func extractDotLottieJSON(dotLottiePath string) (string, error) {
 
 		if err := src.Close(); err != nil {
 			if closeErr := dst.Close(); closeErr != nil {
-				lottieLogger.Warn("failed to close temp Lottie JSON after source close error", "path", dst.Name(), "error", closeErr)
+				lottieLogger.Error("failed to close temp Lottie JSON after source close error", "path", dst.Name(), "error", closeErr)
 			}
 			removeLottieTempFile(dst.Name(), "failed to remove temp Lottie JSON after source close error")
 			return "", err
@@ -221,7 +225,7 @@ func prepareLottieJSON(jsonPath string, lineHex string, bgHex string) string {
 
 	if _, err := out.Write(prepared); err != nil {
 		if closeErr := out.Close(); closeErr != nil {
-			lottieLogger.Warn("failed to close prepared Lottie JSON after write error", "path", out.Name(), "error", closeErr)
+			lottieLogger.Error("failed to close prepared Lottie JSON after write error", "path", out.Name(), "error", closeErr)
 		}
 		removeLottieTempFile(out.Name(), "failed to remove prepared Lottie JSON after write error")
 		return jsonPath
@@ -396,7 +400,7 @@ func runLottieConvert(rlottie *rlottieLibrary, input string, output string) bool
 
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
-		lottieLogger.Warn("failed to open ffmpeg stdin", "error", err)
+		lottieLogger.Error("failed to open ffmpeg stdin", "error", err)
 		return false
 	}
 
@@ -404,7 +408,7 @@ func runLottieConvert(rlottie *rlottieLibrary, input string, output string) bool
 	cmd.Stderr = &stderr
 
 	if err := cmd.Start(); err != nil {
-		lottieLogger.Warn("failed to start ffmpeg", "error", err)
+		lottieLogger.Error("failed to start ffmpeg", "error", err)
 		return false
 	}
 
@@ -416,31 +420,31 @@ func runLottieConvert(rlottie *rlottieLibrary, input string, output string) bool
 		rlottie.render(animation, frame, frameBuffer, width, height, bytesPerLine)
 		if _, err := stdin.Write(frameBuffer); err != nil {
 			if closeErr := stdin.Close(); closeErr != nil {
-				lottieLogger.Warn("failed to close ffmpeg stdin after write error", "error", closeErr)
+				lottieLogger.Error("failed to close ffmpeg stdin after write error", "error", closeErr)
 			}
 			if waitErr := cmd.Wait(); waitErr != nil {
-				lottieLogger.Warn("ffmpeg failed after Lottie frame write error", "error", waitErr, "stderr", strings.TrimSpace(stderr.String()))
+				lottieLogger.Error("ffmpeg failed after Lottie frame write error", "error", waitErr, "stderr", strings.TrimSpace(stderr.String()))
 			}
-			lottieLogger.Warn("failed to write Lottie frame to ffmpeg", "frame", frame, "error", err)
+			lottieLogger.Error("failed to write Lottie frame to ffmpeg", "frame", frame, "error", err)
 			return false
 		}
 	}
 
 	if err := stdin.Close(); err != nil {
 		if waitErr := cmd.Wait(); waitErr != nil {
-			lottieLogger.Warn("ffmpeg failed after stdin close error", "error", waitErr, "stderr", strings.TrimSpace(stderr.String()))
+			lottieLogger.Error("ffmpeg failed after stdin close error", "error", waitErr, "stderr", strings.TrimSpace(stderr.String()))
 		}
-		lottieLogger.Warn("failed to close ffmpeg stdin", "error", err)
+		lottieLogger.Error("failed to close ffmpeg stdin", "error", err)
 		return false
 	}
 
 	if err := cmd.Wait(); err != nil {
-		lottieLogger.Warn("ffmpeg failed", "error", err, "stderr", strings.TrimSpace(stderr.String()))
+		lottieLogger.Error("ffmpeg failed", "error", err, "stderr", strings.TrimSpace(stderr.String()))
 		return false
 	}
 
 	if _, err := os.Stat(output); err != nil {
-		lottieLogger.Warn("ffmpeg did not create output file", "path", output, "error", err)
+		lottieLogger.Error("ffmpeg did not create output file", "path", output, "error", err)
 		return false
 	}
 
@@ -459,7 +463,7 @@ func cleanupLottieTempFiles(extracted string, prepared string, originalSource st
 
 func removeLottieTempFile(path string, message string) {
 	if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
-		lottieLogger.Warn(message, "path", path, "error", err)
+		lottieLogger.Error(message, "path", path, "error", err)
 	}
 }
 
