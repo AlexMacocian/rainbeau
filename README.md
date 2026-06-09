@@ -66,6 +66,8 @@ Rainbeau can use these tools when available:
 - `ffmpeg` and `rlottie` for Lottie wallpaper rendering
 - `glslViewer` for GLSL shader wallpaper rendering
 - `notify-send` for desktop notifications
+- optional target apps for generated configs: Firefox, Neovim, VS Code, Wofi,
+  HyprChat, Hyprtoolkit, Omni Launcher, and Quick Visor
 
 Generated Lottie and shader MP4 files are cached under:
 
@@ -73,4 +75,3 @@ Generated Lottie and shader MP4 files are cached under:
 ~/.cache/shell-dev/lottie-cache
 ~/.cache/shell-dev/glsl-cache
 ```
-
