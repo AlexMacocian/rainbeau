@@ -5,8 +5,10 @@ package generators
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/AlexMacocian/rainbeau/converters"
 	rainbeau "github.com/AlexMacocian/rainbeau/internal"
@@ -101,10 +103,15 @@ func ApplyTheme(theme *rainbeau.Theme, outputDir string, wallpaperDir string) er
 		errors = append(errors, fmt.Sprintf("scripts: %v", err))
 	}
 
+	reloadThemeServices(theme)
+
 	if len(errors) > 0 {
-		return fmt.Errorf("generator errors: %s", strings.Join(errors, "; "))
+		rainbeau.NotifyError(fmt.Sprintf("Theme '%s' applied with %d error(s).", theme.Name, len(errors)))
+		generatorLogger.Error("Theme applied with generator errors", "errors", strings.Join(errors, "; "))
+		return nil
 	}
 
+	rainbeau.NotifySuccess(fmt.Sprintf("Theme '%s' applied successfully.", theme.Name))
 	return nil
 }
 
@@ -190,4 +197,134 @@ func chmodScripts(scriptDir string) error {
 		}
 	}
 	return nil
+}
+
+func reloadThemeServices(theme *rainbeau.Theme) {
+	restartWallpaperCycler()
+	reloadKitty()
+	reloadNeovim(theme)
+
+	runCommand("hyprctl", "reload")
+	runCommand("killall", "-SIGUSR2", "waybar")
+	time.Sleep(300 * time.Millisecond)
+	if !isProcessRunning("waybar") {
+		runDetached("waybar")
+	}
+
+	runCommand("killall", "dunst")
+	runCommand("gsettings", "set", "org.gnome.desktop.interface", "color-scheme", theme.Gtk.ColorScheme)
+	runCommand("gsettings", "set", "org.gnome.desktop.interface", "gtk-theme", theme.Gtk.Theme)
+
+	runCommand("killall", "hyprpaper")
+	runDetached("hyprpaper")
+}
+
+func restartWallpaperCycler() {
+	runCommand("pkill", "-f", "wallpaper-cycler")
+	time.Sleep(300 * time.Millisecond)
+	runDetached("bash", "-c", "~/.config/hypr/scripts/wallpaper-cycler.sh &")
+}
+
+func reloadKitty() {
+	sockets, err := filepath.Glob("/tmp/kitty-socket-*")
+	if err != nil {
+		generatorLogger.Error("Failed to find Kitty sockets", "error", err)
+		return
+	}
+
+	for _, socket := range sockets {
+		runCommand("kitten", "@", "--to", "unix:"+socket, "set-colors", "--all", "--configured", "~/.config/kitty/kitty.conf")
+	}
+}
+
+func reloadNeovim(theme *rainbeau.Theme) {
+	home, err := os.UserHomeDir()
+	if err == nil {
+		if err := os.RemoveAll(filepath.Join(home, ".cache", "nvim", "catppuccin")); err != nil {
+			generatorLogger.Error("Failed to remove catppuccin cache", "error", err)
+		}
+	}
+
+	uid := os.Getenv("UID")
+	if uid == "" {
+		loginUID, err := os.ReadFile("/proc/self/loginuid")
+		if err == nil {
+			uid = strings.TrimSpace(string(loginUID))
+		}
+	}
+	if uid == "" {
+		return
+	}
+
+	nvimDir := filepath.Join("/run/user", uid)
+	if info, err := os.Stat(nvimDir); err != nil || !info.IsDir() {
+		return
+	}
+
+	cmd := ":lua package.loaded['plugins.colorscheme'] = nil; require('catppuccin').setup(require('plugins.colorscheme')[1].opts); vim.cmd.colorscheme('catppuccin')<CR>"
+	if theme.Nvim.ColorScheme != "" {
+		cmd = fmt.Sprintf(":silent! colorscheme %s<CR>", theme.Nvim.ColorScheme)
+	}
+
+	sockets, err := filepath.Glob(filepath.Join(nvimDir, "nvim.*"))
+	if err != nil {
+		generatorLogger.Error("Failed to find Neovim sockets", "error", err)
+		return
+	}
+
+	for _, socket := range sockets {
+		runCommand("nvim", "--server", socket, "--remote-send", cmd)
+	}
+}
+
+func runCommand(name string, args ...string) {
+	cmd := exec.Command(name, args...)
+	if err := cmd.Start(); err != nil {
+		generatorLogger.Debug("Command failed to start", "command", name, "args", args, "error", err)
+		return
+	}
+	done := make(chan error, 1)
+	go func() {
+		done <- cmd.Wait()
+	}()
+
+	select {
+	case err := <-done:
+		if err != nil {
+			generatorLogger.Debug("Command failed", "command", name, "args", args, "error", err)
+		}
+	case <-time.After(5 * time.Second):
+		if err := cmd.Process.Kill(); err != nil {
+			generatorLogger.Debug("Failed to kill timed-out command", "command", name, "error", err)
+		}
+		<-done
+	}
+}
+
+func runDetached(name string, args ...string) {
+	if err := exec.Command(name, args...).Start(); err != nil {
+		generatorLogger.Debug("Detached command failed to start", "command", name, "args", args, "error", err)
+	}
+}
+
+func isProcessRunning(name string) bool {
+	cmd := exec.Command("pgrep", "-x", name)
+	if err := cmd.Start(); err != nil {
+		return false
+	}
+	done := make(chan error, 1)
+	go func() {
+		done <- cmd.Wait()
+	}()
+
+	select {
+	case err := <-done:
+		return err == nil
+	case <-time.After(2 * time.Second):
+		if err := cmd.Process.Kill(); err != nil {
+			generatorLogger.Debug("Failed to kill timed-out pgrep", "process", name, "error", err)
+		}
+		<-done
+		return false
+	}
 }
