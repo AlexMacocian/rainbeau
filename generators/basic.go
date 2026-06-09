@@ -3,7 +3,6 @@ package generators
 import (
 	"fmt"
 	"math/rand"
-	"path/filepath"
 	"strings"
 
 	rainbeau "github.com/AlexMacocian/rainbeau/internal"
@@ -402,6 +401,7 @@ func (BluetoothScriptGenerator) Name() string { return "Bluetooth Script" }
 func (BluetoothScriptGenerator) OutputPath() string {
 	return ".config/hypr/scripts/bluetooth-status.sh"
 }
+
 func (BluetoothScriptGenerator) Generate(theme *rainbeau.Theme, wallpapersDir string) (string, error) {
 	c := theme.Colors
 	sep := theme.Waybar.Separator
@@ -479,11 +479,4 @@ get_nvidia || get_amd || printf '{"text": "%%s N/A %%s", "tooltip": "No GPU dete
 
 func f(value float64) string {
 	return strings.TrimRight(strings.TrimRight(fmt.Sprintf("%.6f", value), "0"), ".")
-}
-
-func wallpaperPath(path string) string {
-	if filepath.IsAbs(path) {
-		return path
-	}
-	return filepath.Join("~/.config/hypr/wallpapers", path)
 }

@@ -44,7 +44,7 @@ type ResolvedPalette struct {
 func ResolvePalette(theme *Theme) ResolvedPalette {
 	c := theme.Colors
 	bg0 := c.Bg0
-	isLight := strings.Contains(canonicalLower(theme.Gtk.ColorScheme), "light")
+	isLight := strings.Contains(strings.ToLower(theme.Gtk.ColorScheme), "light")
 	minContrast := theme.Terminal.EffectiveMinContrast()
 	minUIContrast := math.Min(4.5, minContrast)
 
@@ -175,8 +175,4 @@ func forceMinSaturation(hex string, minSaturation float64) string {
 		return hex
 	}
 	return HslToHex(h, minSaturation, l)
-}
-
-func canonicalLower(value string) string {
-	return strings.ToLower(value)
 }
