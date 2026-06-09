@@ -1,5 +1,7 @@
 package main
 
+import "encoding/json"
+
 type Theme struct {
 	Name       string            `json:"name"`
 	Colors     ThemeColors       `json:"colors"`
@@ -87,6 +89,23 @@ type ShaderEntry struct {
 	Fps             int    `json:"fps"`
 	Width           int    `json:"width"`
 	Height          int    `json:"height"`
+}
+
+func (s *ShaderEntry) UnmarshalJSON(data []byte) error {
+	type alias ShaderEntry
+	defaults := alias{
+		DurationSeconds: 20,
+		Fps:             60,
+		Width:           1920,
+		Height:          1080,
+	}
+
+	if err := json.Unmarshal(data, &defaults); err != nil {
+		return err
+	}
+
+	*s = ShaderEntry(defaults)
+	return nil
 }
 
 // GtkSettings describes the per-theme GTK color scheme and theme selection.

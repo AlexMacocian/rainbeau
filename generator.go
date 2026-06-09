@@ -17,6 +17,13 @@ func applyTheme(theme *Theme, outputDir string, wallpaperDir string) error {
 		theme.Wallpapers.Videos = appendResult
 	}
 
+	if len(theme.Wallpapers.Shaders) > 0 {
+		renderedShaders := convertShaders(theme.Wallpapers.Shaders, wallpaperDir, theme.Colors.Bg0, theme.Colors.Border)
+		appendResult := append(theme.Wallpapers.Videos, renderedShaders...)
+		generatorLogger.Info("Converted GLSL shaders to MP4s", "shaderFiles", renderedShaders)
+		theme.Wallpapers.Videos = appendResult
+	}
+
 	return nil
 }
 
