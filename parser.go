@@ -2,11 +2,16 @@ package main
 
 import (
 	"encoding/json"
+	"log/slog"
 	"os"
+
+	rainbeau "github.com/AlexMacocian/rainbeau/internal"
 )
 
+var loaderLogger = rainbeau.GetLogger("loader", slog.LevelInfo)
+
 // loadTheme reads a JSON theme file from the specified path, parses it into a Theme struct, and returns it.
-func loadTheme(themePath string) (*Theme, error) {
+func loadTheme(themePath string) (*rainbeau.Theme, error) {
 	themeFile, readErr := os.ReadFile(themePath)
 	if readErr != nil {
 		loaderLogger.Error("Error opening theme file", "error", readErr)
@@ -14,7 +19,7 @@ func loadTheme(themePath string) (*Theme, error) {
 	}
 
 	loaderLogger.Debug("Theme file", "path", themePath, "size", len(themeFile))
-	var data Theme
+	var data rainbeau.Theme
 	parseErr := json.Unmarshal(themeFile, &data)
 	if parseErr != nil {
 		loaderLogger.Error("Error parsing theme file", "error", parseErr)

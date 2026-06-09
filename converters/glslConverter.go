@@ -13,11 +13,13 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+
+	rainbeau "github.com/AlexMacocian/rainbeau/internal"
 )
 
 const glslViewerTool = "glslViewer"
 
-var glslLogger = getLogger("glsl", slog.LevelInfo)
+var glslLogger = rainbeau.GetLogger("glsl", slog.LevelInfo)
 
 var glslPlaceholders = []string{
 	"${BG_R}",
@@ -31,15 +33,15 @@ var glslPlaceholders = []string{
 	"${LOOP_SECONDS}",
 }
 
-// convertShaders renders GLSL fragment shaders to cached MP4 files via headless glslViewer.
-func convertShaders(shaders []ShaderEntry, wallpapersDir string, bgHex string, accentHex string) []string {
+// ConvertShaders renders GLSL fragment shaders to cached MP4 files via headless glslViewer.
+func ConvertShaders(shaders []rainbeau.ShaderEntry, wallpapersDir string, bgHex string, accentHex string) []string {
 	if len(shaders) == 0 {
 		return nil
 	}
 
 	if _, err := exec.LookPath(glslViewerTool); err != nil {
 		glslLogger.Error("glslViewer not found on PATH; install it to enable shader wallpapers", "tool", glslViewerTool, "error", err)
-		notifyError("Glsl error", "GlslViewer not found on PATH; install it to enable shader wallpapers")
+		rainbeau.NotifyError("Glsl error", "GlslViewer not found on PATH; install it to enable shader wallpapers")
 		return nil
 	}
 
@@ -49,27 +51,27 @@ func convertShaders(shaders []ShaderEntry, wallpapersDir string, bgHex string, a
 	if err != nil {
 
 		glslLogger.Error("invalid shader background color", "color", bgHex, "error", err)
-		notifyError("Glsl error", "Invalid shader background color; check logs for details")
+		rainbeau.NotifyError("Glsl error", "Invalid shader background color; check logs for details")
 		return nil
 	}
 
 	ar, ag, ab, err := hexToFloatRGB(accentHex)
 	if err != nil {
 		glslLogger.Error("invalid shader accent color", "color", accentHex, "error", err)
-		notifyError("Glsl error", "Invalid shader accent color; check logs for details")
+		rainbeau.NotifyError("Glsl error", "Invalid shader accent color; check logs for details")
 		return nil
 	}
 
 	cacheDir, err := glslCacheDir()
 	if err != nil {
 		glslLogger.Error("failed to resolve GLSL cache directory", "error", err)
-		notifyError("Glsl error", "Failed to resolve GLSL cache directory; check logs for details")
+		rainbeau.NotifyError("Glsl error", "Failed to resolve GLSL cache directory; check logs for details")
 		return nil
 	}
 
 	if err := os.MkdirAll(cacheDir, 0o755); err != nil {
 		glslLogger.Error("failed to create GLSL cache directory", "path", cacheDir, "error", err)
-		notifyError("Glsl error", "Failed to create GLSL cache directory; check logs for details")
+		rainbeau.NotifyError("Glsl error", "Failed to create GLSL cache directory; check logs for details")
 		return nil
 	}
 
@@ -82,14 +84,14 @@ func convertShaders(shaders []ShaderEntry, wallpapersDir string, bgHex string, a
 
 		if _, err := os.Stat(sourcePath); err != nil {
 			glslLogger.Error("shader source not found", "path", entry.Path, "error", err)
-			notifyError("Glsl error", fmt.Sprintf("Shader source not found: %s; check logs for details", entry.Path))
+			rainbeau.NotifyError("Glsl error", fmt.Sprintf("Shader source not found: %s; check logs for details", entry.Path))
 			continue
 		}
 
 		source, err := os.ReadFile(sourcePath)
 		if err != nil {
 			glslLogger.Error("failed to read shader source", "path", entry.Path, "error", err)
-			notifyError("Glsl error", fmt.Sprintf("Failed to read shader source: %s; check logs for details", entry.Path))
+			rainbeau.NotifyError("Glsl error", fmt.Sprintf("Failed to read shader source: %s; check logs for details", entry.Path))
 			continue
 		}
 
@@ -110,35 +112,35 @@ func convertShaders(shaders []ShaderEntry, wallpapersDir string, bgHex string, a
 			shaderToRender = replaceExtension(mp4Abs, ".frag")
 			if err := os.WriteFile(shaderToRender, []byte(substituted), 0o644); err != nil {
 				glslLogger.Error("failed to write substituted shader source", "path", shaderToRender, "error", err)
-				notifyError("Glsl error", fmt.Sprintf("Failed to write substituted shader source: %s; check logs for details", entry.Path))
+				rainbeau.NotifyError("Glsl error", fmt.Sprintf("Failed to write substituted shader source: %s; check logs for details", entry.Path))
 				continue
 			}
 		}
 
 		glslLogger.Info("Rendering shader", "source", entry.Path, "output", mp4Abs)
-		progress := startProgressNotification("Theme Engine", fmt.Sprintf("Rendering shader %s (this may take some time)...", stem))
+		progress := rainbeau.StartProgressNotification("Theme Engine", fmt.Sprintf("Rendering shader %s (this may take some time)...", stem))
 
 		rawPath := mp4Abs + ".raw.mp4"
 		removeFileIfExists(rawPath, "failed to remove stale raw shader output")
 
 		if !runGlslViewer(shaderToRender, rawPath, entry, progress) {
-			progress.close()
+			progress.Close()
 			removeFileIfExists(rawPath, "failed to remove failed raw shader output")
 			glslLogger.Error("failed to render shader", "path", entry.Path)
 			continue
 		}
 
-		progress.updateMessage(fmt.Sprintf("Compressing %s...", stem))
+		progress.UpdateMessage(fmt.Sprintf("Compressing %s...", stem))
 		if !compressMp4(rawPath, mp4Abs, float64(entry.DurationSeconds), stem, progress) {
 			if err := moveFileOverwrite(rawPath, mp4Abs); err != nil {
-				progress.close()
+				progress.Close()
 				glslLogger.Error("failed to keep raw shader output after compression failure", "raw", rawPath, "output", mp4Abs, "error", err)
 				continue
 			}
 		} else {
 			removeFileIfExists(rawPath, "failed to remove compressed raw shader output")
 		}
-		progress.close()
+		progress.Close()
 
 		outputs = append(outputs, mp4Abs)
 	}
@@ -206,7 +208,7 @@ func formatGLSLFloat(value float64) string {
 	return formatted
 }
 
-func runGlslViewer(shaderPath string, outputPath string, entry ShaderEntry, progress *progressNotification) bool {
+func runGlslViewer(shaderPath string, outputPath string, entry rainbeau.ShaderEntry, progress *rainbeau.ProgressNotification) bool {
 	cmd := exec.Command(
 		glslViewerTool,
 		"--headless",
@@ -264,7 +266,7 @@ func runGlslViewer(shaderPath string, outputPath string, entry ShaderEntry, prog
 	return true
 }
 
-func compressMp4(srcPath string, dstPath string, totalSeconds float64, stem string, progress *progressNotification) bool {
+func compressMp4(srcPath string, dstPath string, totalSeconds float64, stem string, progress *rainbeau.ProgressNotification) bool {
 	if _, err := exec.LookPath("ffmpeg"); err != nil {
 		glslLogger.Error("ffmpeg not found, keeping raw shader mp4", "error", err)
 		return false
@@ -351,7 +353,7 @@ func collectLines(pipe io.Reader) <-chan commandOutput {
 	return done
 }
 
-func logGlslViewerProgress(pipe io.Reader, stem string, progress *progressNotification) <-chan error {
+func logGlslViewerProgress(pipe io.Reader, stem string, progress *rainbeau.ProgressNotification) <-chan error {
 	done := make(chan error, 1)
 	go func() {
 		progressRe := regexp.MustCompile(`\[\s*[#.\s]+\]\s*(\d+)\s*%`)
@@ -368,7 +370,7 @@ func logGlslViewerProgress(pipe io.Reader, stem string, progress *progressNotifi
 			}
 			lastPct = pct
 			if progress != nil {
-				progress.updateMessage(fmt.Sprintf("Rendering %s... %d%%", stem, pct))
+				progress.UpdateMessage(fmt.Sprintf("Rendering %s... %d%%", stem, pct))
 			}
 			glslLogger.Info("Rendering shader", "shader", stem, "percent", pct)
 		}
@@ -378,7 +380,7 @@ func logGlslViewerProgress(pipe io.Reader, stem string, progress *progressNotifi
 	return done
 }
 
-func logFfmpegProgress(pipe io.Reader, totalSeconds float64, stem string, progress *progressNotification) <-chan error {
+func logFfmpegProgress(pipe io.Reader, totalSeconds float64, stem string, progress *rainbeau.ProgressNotification) <-chan error {
 	done := make(chan error, 1)
 	go func() {
 		lastPct := -1
@@ -406,7 +408,7 @@ func logFfmpegProgress(pipe io.Reader, totalSeconds float64, stem string, progre
 			}
 			lastPct = pct
 			if progress != nil {
-				progress.updateMessage(fmt.Sprintf("Compressing %s... %d%%", stem, pct))
+				progress.UpdateMessage(fmt.Sprintf("Compressing %s... %d%%", stem, pct))
 			}
 			glslLogger.Info("Compressing shader", "shader", stem, "percent", pct)
 		}

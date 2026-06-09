@@ -36,14 +36,15 @@ import (
 	"strings"
 	"unsafe"
 
+	rainbeau "github.com/AlexMacocian/rainbeau/internal"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
 )
 
-var lottieLogger = getLogger("lottie", slog.LevelInfo)
+var lottieLogger = rainbeau.GetLogger("lottie", slog.LevelInfo)
 
-// convertLotties renders Lottie sources under wallpapersDir into cached MP4 files.
-func convertLotties(lottiePaths []string, wallpapersDir string, bgHex string, lineHex string) []string {
+// ConvertLotties renders Lottie sources under wallpapersDir into cached MP4 files.
+func ConvertLotties(lottiePaths []string, wallpapersDir string, bgHex string, lineHex string) []string {
 	if len(lottiePaths) == 0 {
 		return nil
 	}
@@ -91,14 +92,14 @@ func convertLotties(lottiePaths []string, wallpapersDir string, bgHex string, li
 		}
 
 		lottieLogger.Info("Rendering Lottie", "source", lottiePath, "output", mp4Abs)
-		progress := startProgressNotification("Theme Engine", fmt.Sprintf("Generating Lottie video for %s (this may take some time)...", stem))
+		progress := rainbeau.StartProgressNotification("Theme Engine", fmt.Sprintf("Generating Lottie video for %s (this may take some time)...", stem))
 
 		sourceJSONPath := sourcePath
 		extracted := ""
 		if strings.EqualFold(filepath.Ext(sourcePath), ".lottie") {
 			extracted, err = extractDotLottieJSON(sourcePath)
 			if err != nil {
-				progress.close()
+				progress.Close()
 				lottieLogger.Error("could not extract animation JSON from dotLottie file", "path", lottiePath, "error", err)
 				continue
 			}
@@ -108,7 +109,7 @@ func convertLotties(lottiePaths []string, wallpapersDir string, bgHex string, li
 		prepared := prepareLottieJSON(sourceJSONPath, line, bg)
 
 		if !runLottieConvert(&rlottie, prepared, mp4Abs) {
-			progress.close()
+			progress.Close()
 			if err := os.Remove(mp4Abs); err != nil && !errors.Is(err, os.ErrNotExist) {
 				lottieLogger.Error("failed to remove partial Lottie output", "path", mp4Abs, "error", err)
 			}
@@ -118,7 +119,7 @@ func convertLotties(lottiePaths []string, wallpapersDir string, bgHex string, li
 		}
 
 		cleanupLottieTempFiles(extracted, prepared, sourceJSONPath)
-		progress.close()
+		progress.Close()
 		outputs = append(outputs, mp4Abs)
 	}
 

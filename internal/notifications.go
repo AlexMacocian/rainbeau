@@ -1,4 +1,4 @@
-package main
+package internal
 
 import (
 	"context"
@@ -28,15 +28,15 @@ var progressFrames = []string{
 
 const progressFrameInterval = 150 * time.Millisecond
 
-func notifyInfo(title string, message string) {
+func NotifyInfo(title string, message string) {
 	sendNotification(title, message, infoIcon)
 }
 
-func notifySuccess(title string, message string) {
+func NotifySuccess(title string, message string) {
 	sendNotification(title, message, successIcon)
 }
 
-func notifyError(title string, message string) {
+func NotifyError(title string, message string) {
 	sendNotification(title, message, errorIcon)
 }
 
@@ -49,7 +49,7 @@ func sendNotification(title string, message string, icon string) {
 	fmt.Printf("[%s] %s: %s\n", icon, title, message)
 }
 
-type progressNotification struct {
+type ProgressNotification struct {
 	title       string
 	baseMessage atomic.Value
 	icon        string
@@ -59,13 +59,13 @@ type progressNotification struct {
 	id          atomic.Uint32
 }
 
-func startProgressNotification(title string, message string) *progressNotification {
-	return startProgressNotificationWithIcon(title, message, infoIcon)
+func StartProgressNotification(title string, message string) *ProgressNotification {
+	return StartProgressNotificationWithIcon(title, message, infoIcon)
 }
 
-func startProgressNotificationWithIcon(title string, message string, icon string) *progressNotification {
+func StartProgressNotificationWithIcon(title string, message string, icon string) *ProgressNotification {
 	ctx, cancel := context.WithCancel(context.Background())
-	progress := &progressNotification{
+	progress := &ProgressNotification{
 		title:  title,
 		icon:   icon,
 		cancel: cancel,
@@ -81,11 +81,11 @@ func startProgressNotificationWithIcon(title string, message string, icon string
 	return progress
 }
 
-func (p *progressNotification) updateMessage(message string) {
+func (p *ProgressNotification) UpdateMessage(message string) {
 	p.baseMessage.Store(message)
 }
 
-func (p *progressNotification) animate(ctx context.Context) {
+func (p *ProgressNotification) animate(ctx context.Context) {
 	defer close(p.done)
 
 	ticker := time.NewTicker(progressFrameInterval)
@@ -103,7 +103,7 @@ func (p *progressNotification) animate(ctx context.Context) {
 	}
 }
 
-func (p *progressNotification) sendFrame(frame string, replace bool) uint32 {
+func (p *ProgressNotification) sendFrame(frame string, replace bool) uint32 {
 	args := []string{
 		"-i", p.icon,
 		"-t", "0",
@@ -136,7 +136,7 @@ func (p *progressNotification) sendFrame(frame string, replace bool) uint32 {
 	return currentID
 }
 
-func (p *progressNotification) close() {
+func (p *ProgressNotification) Close() {
 	p.closeOnce.Do(func() {
 		p.cancel()
 
@@ -165,7 +165,7 @@ func (p *progressNotification) close() {
 	})
 }
 
-func (p *progressNotification) message() string {
+func (p *ProgressNotification) message() string {
 	value := p.baseMessage.Load()
 	message, _ := value.(string)
 	return message

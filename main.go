@@ -1,10 +1,17 @@
+// Package main is the entry point of the Rainbeau application. It parses command-line arguments, loads the theme, and applies it to the system.
 package main
 
 import (
 	"flag"
+	"log/slog"
 	"os"
 	"path/filepath"
+
+	"github.com/AlexMacocian/rainbeau/generators"
+	rainbeau "github.com/AlexMacocian/rainbeau/internal"
 )
+
+var mainLogger = rainbeau.GetLogger("main", slog.LevelInfo)
 
 func main() {
 	args := os.Args[1:]
@@ -31,7 +38,7 @@ func main() {
 	mainLogger.Info("Output directory", "path", *outputDir)
 	mainLogger.Info("Wallpaper directory", "path", wallpaperDir)
 
-	applyErr := applyTheme(theme, *outputDir, wallpaperDir)
+	applyErr := generators.ApplyTheme(theme, *outputDir, wallpaperDir)
 
 	if applyErr != nil {
 		mainLogger.Error("Failed to apply theme", "error", applyErr)

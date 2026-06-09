@@ -5,17 +5,17 @@ import (
 	"os"
 )
 
-// loaderLogger is a global slog.Logger instance for the loader component.
-var loaderLogger = getLogger("loader", slog.LevelInfo)
+// LoaderLogger is a global slog.Logger instance for the loader component.
+var LoaderLogger = GetLogger("loader", slog.LevelInfo)
 
-// mainLogger is a global slog.Logger instance for the main component.
-var mainLogger = getLogger("main", slog.LevelInfo)
+// MainLogger is a global slog.Logger instance for the main component.
+var MainLogger = GetLogger("main", slog.LevelInfo)
 
-// mainLogger is a global slog.Logger instance for the main component.
-var generatorLogger = getLogger("generator", slog.LevelInfo)
+// GeneratorLogger is a global slog.Logger instance for the generator component.
+var GeneratorLogger = GetLogger("generator", slog.LevelInfo)
 
-// getLogger creates a new slog.Logger with the specified component name and log level.
-func getLogger(component string, level slog.Level) *slog.Logger {
+// GetLogger creates a new slog.Logger with the specified component name and log level.
+func GetLogger(component string, level slog.Level) *slog.Logger {
 	handler := slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
 		Level: level,
 	})
