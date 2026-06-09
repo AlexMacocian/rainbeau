@@ -1,4 +1,4 @@
-package logging
+package internal
 
 import (
 	"log/slog"
