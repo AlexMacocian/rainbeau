@@ -32,6 +32,13 @@ type ThemeColors struct {
 	Saturation float64 `json:"saturation"`
 }
 
+func (t ThemeColors) SaturationBoost() float64 {
+	if t.Saturation == 0 {
+		return 0.10
+	}
+	return t.Saturation
+}
+
 // HyprlandSettings describes the settings for the Hyprland configuration, such as border size, rounding, gaps, shadow, blur, opacity, and animation speeds.
 type HyprlandSettings struct {
 	BorderSize               int     `json:"border_size"`

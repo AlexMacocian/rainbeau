@@ -28,7 +28,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log/slog"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -41,7 +40,7 @@ import (
 	"github.com/tidwall/sjson"
 )
 
-var lottieLogger = rainbeau.GetLogger("lottie", slog.LevelInfo)
+var lottieLogger = rainbeau.ConverterLogger.With("converter", "lottie")
 
 // ConvertLotties renders Lottie sources under wallpapersDir into cached MP4 files.
 func ConvertLotties(lottiePaths []string, wallpapersDir string, bgHex string, lineHex string) []string {
@@ -92,7 +91,7 @@ func ConvertLotties(lottiePaths []string, wallpapersDir string, bgHex string, li
 		}
 
 		lottieLogger.Info("Rendering Lottie", "source", lottiePath, "output", mp4Abs)
-		progress := rainbeau.StartProgressNotification("Theme Engine", fmt.Sprintf("Generating Lottie video for %s (this may take some time)...", stem))
+		progress := rainbeau.StartProgressNotification(fmt.Sprintf("Generating Lottie video for %s (this may take some time)...", stem))
 
 		sourceJSONPath := sourcePath
 		extracted := ""

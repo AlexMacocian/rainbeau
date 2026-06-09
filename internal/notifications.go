@@ -28,16 +28,16 @@ var progressFrames = []string{
 
 const progressFrameInterval = 150 * time.Millisecond
 
-func NotifyInfo(title string, message string) {
-	sendNotification(title, message, infoIcon)
+func NotifyInfo(message string) {
+	sendNotification("Rainbeau", message, infoIcon)
 }
 
-func NotifySuccess(title string, message string) {
-	sendNotification(title, message, successIcon)
+func NotifySuccess(message string) {
+	sendNotification("Rainbeau", message, successIcon)
 }
 
-func NotifyError(title string, message string) {
-	sendNotification(title, message, errorIcon)
+func NotifyError(message string) {
+	sendNotification("Rainbeau", message, errorIcon)
 }
 
 func sendNotification(title string, message string, icon string) {
@@ -59,14 +59,14 @@ type ProgressNotification struct {
 	id          atomic.Uint32
 }
 
-func StartProgressNotification(title string, message string) *ProgressNotification {
-	return StartProgressNotificationWithIcon(title, message, infoIcon)
+func StartProgressNotification(message string) *ProgressNotification {
+	return StartProgressNotificationWithIcon(message, infoIcon)
 }
 
-func StartProgressNotificationWithIcon(title string, message string, icon string) *ProgressNotification {
+func StartProgressNotificationWithIcon(message string, icon string) *ProgressNotification {
 	ctx, cancel := context.WithCancel(context.Background())
 	progress := &ProgressNotification{
-		title:  title,
+		title:  "Rainbeau",
 		icon:   icon,
 		cancel: cancel,
 		done:   make(chan struct{}),
@@ -74,7 +74,7 @@ func StartProgressNotificationWithIcon(title string, message string, icon string
 
 	progress.baseMessage.Store(message)
 	progress.id.Store(progress.sendFrame(progressFrames[0], false))
-	fmt.Printf("[%s] %s: %s\n", icon, title, message)
+	fmt.Printf("[%s] %s: %s\n", icon, "Rainbeau", message)
 
 	go progress.animate(ctx)
 

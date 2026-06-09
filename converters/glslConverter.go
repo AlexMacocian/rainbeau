@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log/slog"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -19,7 +18,7 @@ import (
 
 const glslViewerTool = "glslViewer"
 
-var glslLogger = rainbeau.GetLogger("glsl", slog.LevelInfo)
+var glslLogger = rainbeau.ConverterLogger.With("converter", "glsl")
 
 var glslPlaceholders = []string{
 	"${BG_R}",
@@ -41,7 +40,7 @@ func ConvertShaders(shaders []rainbeau.ShaderEntry, wallpapersDir string, bgHex 
 
 	if _, err := exec.LookPath(glslViewerTool); err != nil {
 		glslLogger.Error("glslViewer not found on PATH; install it to enable shader wallpapers", "tool", glslViewerTool, "error", err)
-		rainbeau.NotifyError("Glsl error", "GlslViewer not found on PATH; install it to enable shader wallpapers")
+		rainbeau.NotifyError("GlslViewer not found on PATH; install it to enable shader wallpapers")
 		return nil
 	}
 
@@ -51,27 +50,27 @@ func ConvertShaders(shaders []rainbeau.ShaderEntry, wallpapersDir string, bgHex 
 	if err != nil {
 
 		glslLogger.Error("invalid shader background color", "color", bgHex, "error", err)
-		rainbeau.NotifyError("Glsl error", "Invalid shader background color; check logs for details")
+		rainbeau.NotifyError("Invalid shader background color; check logs for details")
 		return nil
 	}
 
 	ar, ag, ab, err := hexToFloatRGB(accentHex)
 	if err != nil {
 		glslLogger.Error("invalid shader accent color", "color", accentHex, "error", err)
-		rainbeau.NotifyError("Glsl error", "Invalid shader accent color; check logs for details")
+		rainbeau.NotifyError("Invalid shader accent color; check logs for details")
 		return nil
 	}
 
 	cacheDir, err := glslCacheDir()
 	if err != nil {
 		glslLogger.Error("failed to resolve GLSL cache directory", "error", err)
-		rainbeau.NotifyError("Glsl error", "Failed to resolve GLSL cache directory; check logs for details")
+		rainbeau.NotifyError("Failed to resolve GLSL cache directory; check logs for details")
 		return nil
 	}
 
 	if err := os.MkdirAll(cacheDir, 0o755); err != nil {
 		glslLogger.Error("failed to create GLSL cache directory", "path", cacheDir, "error", err)
-		rainbeau.NotifyError("Glsl error", "Failed to create GLSL cache directory; check logs for details")
+		rainbeau.NotifyError("Failed to create GLSL cache directory; check logs for details")
 		return nil
 	}
 
@@ -84,14 +83,14 @@ func ConvertShaders(shaders []rainbeau.ShaderEntry, wallpapersDir string, bgHex 
 
 		if _, err := os.Stat(sourcePath); err != nil {
 			glslLogger.Error("shader source not found", "path", entry.Path, "error", err)
-			rainbeau.NotifyError("Glsl error", fmt.Sprintf("Shader source not found: %s; check logs for details", entry.Path))
+			rainbeau.NotifyError(fmt.Sprintf("Shader source not found: %s; check logs for details", entry.Path))
 			continue
 		}
 
 		source, err := os.ReadFile(sourcePath)
 		if err != nil {
 			glslLogger.Error("failed to read shader source", "path", entry.Path, "error", err)
-			rainbeau.NotifyError("Glsl error", fmt.Sprintf("Failed to read shader source: %s; check logs for details", entry.Path))
+			rainbeau.NotifyError(fmt.Sprintf("Failed to read shader source: %s; check logs for details", entry.Path))
 			continue
 		}
 
@@ -112,13 +111,13 @@ func ConvertShaders(shaders []rainbeau.ShaderEntry, wallpapersDir string, bgHex 
 			shaderToRender = replaceExtension(mp4Abs, ".frag")
 			if err := os.WriteFile(shaderToRender, []byte(substituted), 0o644); err != nil {
 				glslLogger.Error("failed to write substituted shader source", "path", shaderToRender, "error", err)
-				rainbeau.NotifyError("Glsl error", fmt.Sprintf("Failed to write substituted shader source: %s; check logs for details", entry.Path))
+				rainbeau.NotifyError(fmt.Sprintf("Failed to write substituted shader source: %s; check logs for details", entry.Path))
 				continue
 			}
 		}
 
 		glslLogger.Info("Rendering shader", "source", entry.Path, "output", mp4Abs)
-		progress := rainbeau.StartProgressNotification("Theme Engine", fmt.Sprintf("Rendering shader %s (this may take some time)...", stem))
+		progress := rainbeau.StartProgressNotification(fmt.Sprintf("Rendering shader %s (this may take some time)...", stem))
 
 		rawPath := mp4Abs + ".raw.mp4"
 		removeFileIfExists(rawPath, "failed to remove stale raw shader output")

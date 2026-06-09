@@ -1,3 +1,4 @@
+// Package internal provides internal utilities for the application, including logging functionality.
 package internal
 
 import (
@@ -13,6 +14,9 @@ var MainLogger = GetLogger("main", slog.LevelInfo)
 
 // GeneratorLogger is a global slog.Logger instance for the generator component.
 var GeneratorLogger = GetLogger("generator", slog.LevelInfo)
+
+// ConverterLogger is a global slog.Logger instance for the converter component.
+var ConverterLogger = GetLogger("converter", slog.LevelInfo)
 
 // GetLogger creates a new slog.Logger with the specified component name and log level.
 func GetLogger(component string, level slog.Level) *slog.Logger {

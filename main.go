@@ -2,8 +2,6 @@
 package main
 
 import (
-	"flag"
-	"log/slog"
 	"os"
 	"path/filepath"
 
@@ -11,7 +9,7 @@ import (
 	rainbeau "github.com/AlexMacocian/rainbeau/internal"
 )
 
-var mainLogger = rainbeau.GetLogger("main", slog.LevelInfo)
+var mainLogger = rainbeau.MainLogger
 
 func main() {
 	args := os.Args[1:]
@@ -27,18 +25,18 @@ func main() {
 		os.Exit(1)
 	}
 
-	outputDir, loadErr := getOuputDir()
-	if (loadErr != nil) || (outputDir == nil) {
+	outputDir, loadErr := getOuputDir(args)
+	if loadErr != nil {
 		mainLogger.Error("Failed to get output directory", "error", loadErr)
 		os.Exit(1)
 	}
 
 	wallpaperDir := getWallpaperDir(args[0])
 	mainLogger.Info("Loading theme", "name", theme.Name)
-	mainLogger.Info("Output directory", "path", *outputDir)
+	mainLogger.Info("Output directory", "path", outputDir)
 	mainLogger.Info("Wallpaper directory", "path", wallpaperDir)
 
-	applyErr := generators.ApplyTheme(theme, *outputDir, wallpaperDir)
+	applyErr := generators.ApplyTheme(theme, outputDir, wallpaperDir)
 
 	if applyErr != nil {
 		mainLogger.Error("Failed to apply theme", "error", applyErr)
@@ -46,23 +44,27 @@ func main() {
 	}
 }
 
-func getOuputDir() (*string, error) {
-	outputDirDefault, err := os.UserHomeDir()
+func getOuputDir(args []string) (string, error) {
+	outputDir, err := os.UserHomeDir()
 	if err != nil {
 		mainLogger.Error("Failed to get user home directory", "error", err)
-		return nil, err
+		return "", err
 	}
 
-	outputDir := flag.String("output-dir", outputDirDefault, "output directory")
-	flag.Parse()
+	for i, arg := range args {
+		if arg == "--output-dir" && i+1 < len(args) {
+			outputDir = args[i+1]
+			break
+		}
+	}
 
-	absOutputDir, err := filepath.Abs(*outputDir)
+	absOutputDir, err := filepath.Abs(outputDir)
 	if (err != nil) || (absOutputDir == "") {
 		mainLogger.Error("Failed to resolve output directory", "error", err)
-		return nil, err
+		return "", err
 	}
 
-	return outputDir, nil
+	return absOutputDir, nil
 }
 
 func getWallpaperDir(themePath string) string {
