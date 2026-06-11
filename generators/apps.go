@@ -73,7 +73,7 @@ rounding_small = %d
 
 type OmniLauncherConfigGenerator struct{}
 
-func (OmniLauncherConfigGenerator) Name() string { return "Omni Launcher Config" }
+func (OmniLauncherConfigGenerator) Name() string       { return "Omni Launcher Config" }
 func (OmniLauncherConfigGenerator) OutputPath() string { return ".config/omni-launcher/config.json" }
 
 func (OmniLauncherConfigGenerator) Generate(theme *rainbeau.Theme, wallpapersDir string) (string, error) {
@@ -133,7 +133,7 @@ func (QuickVisorThemeGenerator) Generate(theme *rainbeau.Theme, wallpapersDir st
 
 type FirefoxThemeGenerator struct{}
 
-func (FirefoxThemeGenerator) Name() string { return "Firefox Theme" }
+func (FirefoxThemeGenerator) Name() string       { return "Firefox Theme" }
 func (FirefoxThemeGenerator) OutputPath() string { return ".config/firefox-theme/theme-colors.json" }
 
 func (FirefoxThemeGenerator) Generate(theme *rainbeau.Theme, wallpapersDir string) (string, error) {
@@ -207,7 +207,7 @@ user_pref("layout.css.prefers-color-scheme.content-override", %s);
 
 type FirefoxContentGenerator struct{}
 
-func (FirefoxContentGenerator) Name() string { return "Firefox Content" }
+func (FirefoxContentGenerator) Name() string       { return "Firefox Content" }
 func (FirefoxContentGenerator) OutputPath() string { return ".config/firefox-theme/userContent.css" }
 
 func (FirefoxContentGenerator) Generate(theme *rainbeau.Theme, wallpapersDir string) (string, error) {

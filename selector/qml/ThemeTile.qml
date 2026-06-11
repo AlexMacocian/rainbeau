@@ -7,10 +7,11 @@ Item {
 
     property string themeName: ""
     property string thumbnailPath: ""
+    property string imagePath: ""
+    property string fontFamily: ""
     property string bgColor: "#1a1610"
     property string activeBorderColor: "#ffffff"
     property string inactiveBorderColor: "#555555"
-    property bool generated: false
     property bool isCurrent: false
 
     signal chosen()
@@ -44,21 +45,60 @@ Item {
             border.color: tile.isCurrent ? tile.activeBorderColor : tile.inactiveBorderColor
             border.width: 4
 
+            // Palette placeholder: rendered up front, always available, fills the
+            // whole card.
             Image {
+                id: paletteImage
                 anchors.fill: parent
                 anchors.margins: 4
                 source: tile.thumbnailPath ? "file://" + tile.thumbnailPath : ""
-                // Generated palette previews stretch to fill the whole card;
-                // real images zoom-to-fill (preserve ratio, crop the overflow).
-                fillMode: tile.generated ? Image.Stretch : Image.PreserveAspectCrop
+                fillMode: Image.Stretch
                 asynchronous: true
                 cache: false
+            }
+
+            // Real preview: rendered in the background, may appear on disk after
+            // the picker is shown. It fades in over the placeholder once ready.
+            // Its bottom edge stops short so the palette placeholder stays visible
+            // as a thin strip along the bottom of the card.
+            Image {
+                id: realImage
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.top: parent.top
+                anchors.bottom: parent.bottom
+                anchors.leftMargin: 4
+                anchors.rightMargin: 4
+                anchors.topMargin: 4
+                anchors.bottomMargin: 30
+                fillMode: Image.PreserveAspectCrop
+                clip: true
+                asynchronous: true
+                cache: false
+                opacity: status === Image.Ready ? 1 : 0
+                source: tile.imagePath ? "file://" + tile.imagePath : ""
+
+                Behavior on opacity { NumberAnimation { duration: 220 } }
+
+                // The background-generated file may not exist yet when first
+                // loaded; retry by toggling the source until the load succeeds.
+                Timer {
+                    interval: 400
+                    repeat: true
+                    running: tile.imagePath !== "" && realImage.status !== Image.Ready
+                    onTriggered: {
+                        let target = "file://" + tile.imagePath;
+                        realImage.source = "";
+                        realImage.source = target;
+                    }
+                }
             }
 
             Rectangle {
                 anchors.left: parent.left
                 anchors.right: parent.right
                 anchors.bottom: parent.bottom
+                anchors.bottomMargin: 30
                 height: parent.height * 0.28
                 gradient: Gradient {
                     GradientStop { position: 0.0; color: "#00000000" }
@@ -70,9 +110,12 @@ Item {
                 anchors.left: parent.left
                 anchors.right: parent.right
                 anchors.bottom: parent.bottom
-                anchors.margins: 10
+                anchors.bottomMargin: 40
+                anchors.leftMargin: 10
+                anchors.rightMargin: 10
                 text: tile.themeName
                 color: "#ffffff"
+                font.family: tile.fontFamily || undefined
                 font.pixelSize: 18
                 font.bold: true
                 elide: Text.ElideRight

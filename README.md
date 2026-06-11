@@ -4,6 +4,8 @@ Rainbeau is a Hyprland theme engine. It reads a theme JSON file and generates
 matching configuration for Hyprland, Waybar, Kitty, GTK, Dunst, Firefox, Neovim,
 VS Code, Wofi, and related helper scripts.
 
+![Rainbeau visual theme picker](assets/selector.png)
+
 It also prepares animated wallpapers by converting Lottie files and GLSL
 fragment shaders to cached MP4 files for `mpvpaper`.
 
@@ -39,10 +41,22 @@ interactively:
 rainbeau select
 ```
 
-Use the arrow keys to move between themes, `Enter` to apply the highlighted
-theme, and `Escape` to cancel. Each theme is shown as a tilted preview tile. The
-tile image comes from the theme's optional `thumbnail`, otherwise the first
-wallpaper image, otherwise a generated swatch of the palette.
+The picker appears instantly on the focused monitor as a horizontal carousel of
+tilted theme tiles. Navigate with the arrow keys, apply the highlighted theme
+with `Enter`, and dismiss without applying with `Escape` or `Q` (or by clicking
+outside the tiles).
+
+Each tile is built from the theme's own palette and assets:
+
+- The theme name is drawn in that theme's configured font.
+- The card border uses the currently applied theme's colors, so the highlighted
+  tile is easy to spot.
+- A preview image fills the card with a thin palette strip kept visible along
+  the bottom edge. The picker shows a generated palette placeholder immediately,
+  then fills in the real preview in the background. Preview images are sourced,
+  in order, from the theme's optional `thumbnail`, its first wallpaper image,
+  its first wallpaper video, or a previously rendered Lottie/shader wallpaper
+  found in the cache.
 
 By default the picker lists theme files found in:
 
@@ -62,7 +76,8 @@ Write generated files somewhere other than your home directory:
 rainbeau select /path/to/theme.json --output-dir /tmp/rainbeau-output
 ```
 
-By default, Rainbeau writes under `$HOME`, so generated files land in paths like:
+By default, Rainbeau writes under `$HOME`, so generated files land in paths
+like:
 
 ```text
 ~/.config/hypr/theme.conf

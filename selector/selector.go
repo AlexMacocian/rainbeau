@@ -5,6 +5,7 @@
 package selector
 
 import (
+	"context"
 	"embed"
 	"encoding/json"
 	"errors"
@@ -20,6 +21,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 
 	rainbeau "github.com/AlexMacocian/rainbeau/internal"
 )
@@ -40,12 +42,16 @@ var ErrNoThemes = errors.New("no themes found")
 // ErrQuickshellMissing is returned when the quickshell binary is not available.
 var ErrQuickshellMissing = errors.New("quickshell is not installed")
 
-// manifestTheme is a single entry passed to the QML picker.
+// manifestTheme is a single entry passed to the QML picker. Thumbnail is the
+// palette placeholder rendered up front so the UI can show instantly; Image is
+// the real preview rendered in the background and appears on disk later (empty
+// when the theme has no usable image source).
 type manifestTheme struct {
 	Name      string            `json:"name"`
 	Path      string            `json:"path"`
 	Thumbnail string            `json:"thumbnail"`
-	Generated bool              `json:"generated"`
+	Image     string            `json:"image"`
+	Font      string            `json:"font"`
 	Colors    map[string]string `json:"colors"`
 }
 
@@ -126,7 +132,7 @@ func Run(themesDir string) (string, error) {
 		return "", fmt.Errorf("%w in %s", ErrNoThemes, themesDir)
 	}
 
-	man := buildManifest(entries, filepath.Join(cacheDir, "thumbs"))
+	man, jobs := buildManifest(entries, filepath.Join(cacheDir, "thumbs"))
 	man.ActiveBorder, man.InactiveBorder = loadCurrentBorders(cacheDir)
 
 	manifestPath := filepath.Join(cacheDir, "manifest.json")
@@ -142,6 +148,13 @@ func Run(themesDir string) (string, error) {
 	resultPath := filepath.Join(cacheDir, "selection")
 	_ = os.Remove(resultPath)
 
+	// Render the real preview images in the background so the picker (already
+	// populated with palette placeholders) appears instantly. The context is
+	// cancelled once the picker exits to stop any in-flight ffmpeg work.
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go generateThumbnails(ctx, jobs)
+
 	cmd := exec.Command(quickshell, "-p", filepath.Join(qmlDir, "shell.qml"))
 	cmd.Env = append(os.Environ(),
 		"RAINBEAU_MANIFEST="+manifestPath,
@@ -150,7 +163,7 @@ func Run(themesDir string) (string, error) {
 	cmd.Stdout = os.Stderr
 	cmd.Stderr = os.Stderr
 
-	selectorLogger.Info("Launching theme picker", "themes", len(entries))
+	selectorLogger.Info("Launching theme picker", "themes", len(entries), "previews", len(jobs))
 	if err := cmd.Run(); err != nil {
 		return "", fmt.Errorf("quickshell exited with error: %w", err)
 	}
@@ -198,89 +211,197 @@ func discoverThemes(themesDir string) ([]themeEntry, error) {
 	return entries, nil
 }
 
-func buildManifest(entries []themeEntry, thumbsDir string) manifest {
+// thumbJob describes deferred work to render a real preview image for a theme.
+type thumbJob struct {
+	name   string
+	source string
+	dst    string
+}
+
+// buildManifest renders the fast palette placeholders synchronously and returns
+// the manifest plus the list of deferred jobs to render real preview images.
+func buildManifest(entries []themeEntry, thumbsDir string) (manifest, []thumbJob) {
 	if err := os.MkdirAll(thumbsDir, 0o755); err != nil {
 		selectorLogger.Error("Failed to create thumbnails directory", "error", err)
 	}
 
 	man := manifest{Themes: make([]manifestTheme, 0, len(entries))}
+	var jobs []thumbJob
+
 	for i, entry := range entries {
 		slug := slugify(entry.path, i)
-		thumbPath := filepath.Join(thumbsDir, slug+".png")
-		generated := renderThumbnail(entry, thumbPath)
+		palettePath := filepath.Join(thumbsDir, slug+".png")
+		if err := renderPaletteThumbnail(entry.theme.Colors, palettePath); err != nil {
+			selectorLogger.Error("Failed to render palette thumbnail", "theme", entry.theme.Name, "error", err)
+		}
+
+		imagePath := ""
+		if source := resolveImageSource(entry); source != "" {
+			imagePath = filepath.Join(thumbsDir, slug+"-img.png")
+			// Regenerate each run so wallpaper/source changes are reflected.
+			_ = os.Remove(imagePath)
+			jobs = append(jobs, thumbJob{name: entry.theme.Name, source: source, dst: imagePath})
+		}
 
 		man.Themes = append(man.Themes, manifestTheme{
 			Name:      entry.theme.Name,
 			Path:      entry.path,
-			Thumbnail: thumbPath,
-			Generated: generated,
+			Thumbnail: palettePath,
+			Image:     imagePath,
+			Font:      entry.theme.Font.Family,
 			Colors:    paletteMap(entry.theme.Colors),
 		})
 	}
 
-	return man
+	return man, jobs
 }
 
-// renderThumbnail builds a preview PNG for the theme using the tiered fallback:
-// explicit thumbnail -> first wallpaper image -> generated palette strip. It
-// returns true when the result is a generated palette (rather than a real image),
-// so the UI can choose an appropriate fill mode.
-func renderThumbnail(entry themeEntry, dst string) bool {
-	if src := resolveImageSource(entry); src != "" {
-		if err := renderImageThumbnail(src, dst); err == nil {
-			return false
-		} else {
-			selectorLogger.Debug("Image thumbnail failed, falling back to palette", "theme", entry.theme.Name, "error", err)
+// generateThumbnails renders the deferred real preview images while the picker is
+// already on screen. It stops early if the context is cancelled (picker closed).
+func generateThumbnails(ctx context.Context, jobs []thumbJob) {
+	var wg sync.WaitGroup
+	// A small worker pool keeps the UI responsive without spawning an unbounded
+	// number of ffmpeg processes at once.
+	const workers = 3
+	jobCh := make(chan thumbJob)
+
+	for range workers {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for job := range jobCh {
+				if ctx.Err() != nil {
+					return
+				}
+				if err := renderImageThumbnail(ctx, job.source, job.dst); err != nil {
+					selectorLogger.Debug("Failed to render preview image", "theme", job.name, "error", err)
+				}
+			}
+		}()
+	}
+
+	for _, job := range jobs {
+		select {
+		case <-ctx.Done():
+			close(jobCh)
+			wg.Wait()
+			return
+		case jobCh <- job:
 		}
 	}
-
-	if err := renderPaletteThumbnail(entry.theme.Colors, dst); err != nil {
-		selectorLogger.Error("Failed to render palette thumbnail", "theme", entry.theme.Name, "error", err)
-	}
-	return true
+	close(jobCh)
+	wg.Wait()
 }
 
-// resolveImageSource returns an absolute path to the best available image source
-// for a thumbnail, or an empty string when none exists.
+// resolveImageSource returns an absolute path to the best available image or
+// video source for a real preview, or an empty string when none exists. Lottie
+// and shader sources are only used when a previously rendered MP4 exists in the
+// shared wallpaper cache; rendering them from scratch would be too slow here.
 func resolveImageSource(entry themeEntry) string {
 	if entry.theme.Thumbnail != "" {
-		path := entry.theme.Thumbnail
-		if !filepath.IsAbs(path) {
-			path = filepath.Join(entry.dir, path)
-		}
-		if matches, _ := filepath.Glob(path); len(matches) > 0 {
-			return matches[0]
-		}
-		if info, err := os.Stat(path); err == nil && !info.IsDir() {
-			return path
+		if resolved := resolveRelative(entry.dir, entry.theme.Thumbnail); resolved != "" {
+			return resolved
 		}
 	}
 
 	for _, pattern := range entry.theme.Wallpapers.Images {
-		candidate := pattern
-		if !filepath.IsAbs(candidate) {
-			candidate = filepath.Join(entry.dir, candidate)
+		if resolved := resolveRelative(entry.dir, pattern); resolved != "" {
+			return resolved
 		}
-		if matches, _ := filepath.Glob(candidate); len(matches) > 0 {
-			sort.Strings(matches)
-			return matches[0]
+	}
+
+	for _, pattern := range entry.theme.Wallpapers.Videos {
+		if resolved := resolveRelative(entry.dir, pattern); resolved != "" {
+			return resolved
 		}
-		if info, err := os.Stat(candidate); err == nil && !info.IsDir() {
-			return candidate
+	}
+
+	for _, pattern := range entry.theme.Wallpapers.Lotties {
+		if cached := cachedRenderForStem(lottieCacheDir(), pattern); cached != "" {
+			return cached
+		}
+	}
+
+	for _, shader := range entry.theme.Wallpapers.Shaders {
+		if cached := cachedRenderForStem(glslCacheDir(), shader.Path); cached != "" {
+			return cached
 		}
 	}
 
 	return ""
 }
 
-// renderImageThumbnail uses ffmpeg to scale and cover-crop an image to the
-// thumbnail dimensions. ffmpeg is already a hard dependency of Rainbeau.
-func renderImageThumbnail(src string, dst string) error {
+// resolveRelative resolves a path or glob relative to baseDir to a single
+// existing file, or returns an empty string.
+func resolveRelative(baseDir string, path string) string {
+	if !filepath.IsAbs(path) {
+		path = filepath.Join(baseDir, path)
+	}
+	if matches, _ := filepath.Glob(path); len(matches) > 0 {
+		sort.Strings(matches)
+		return matches[0]
+	}
+	if info, err := os.Stat(path); err == nil && !info.IsDir() {
+		return path
+	}
+	return ""
+}
+
+// cachedRenderForStem looks for a previously rendered MP4 for a lottie/shader
+// source in the shared wallpaper cache, returning the newest match.
+func cachedRenderForStem(cacheDir string, sourcePath string) string {
+	stem := strings.TrimSuffix(filepath.Base(sourcePath), filepath.Ext(sourcePath))
+	if stem == "" {
+		return ""
+	}
+	matches, _ := filepath.Glob(filepath.Join(cacheDir, stem+"-*.mp4"))
+	if len(matches) == 0 {
+		return ""
+	}
+
+	newest := matches[0]
+	var newestMod int64
+	for _, match := range matches {
+		info, err := os.Stat(match)
+		if err != nil {
+			continue
+		}
+		if mod := info.ModTime().UnixNano(); mod >= newestMod {
+			newestMod = mod
+			newest = match
+		}
+	}
+	return newest
+}
+
+func lottieCacheDir() string {
+	return filepath.Join(cacheBaseDir(), "shell-dev", "lottie-cache")
+}
+
+func glslCacheDir() string {
+	return filepath.Join(cacheBaseDir(), "shell-dev", "glsl-cache")
+}
+
+func cacheBaseDir() string {
+	if xdg := os.Getenv("XDG_CACHE_HOME"); xdg != "" {
+		return xdg
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return ""
+	}
+	return filepath.Join(home, ".cache")
+}
+
+// renderImageThumbnail uses ffmpeg to pick a representative frame and cover-crop
+// it to the thumbnail dimensions. It handles both still images and video sources
+// (the thumbnail filter selects a frame). ffmpeg is a hard dependency of Rainbeau.
+func renderImageThumbnail(ctx context.Context, src string, dst string) error {
 	filter := fmt.Sprintf(
-		"scale=%d:%d:force_original_aspect_ratio=increase,crop=%d:%d",
+		"thumbnail,scale=%d:%d:force_original_aspect_ratio=increase,crop=%d:%d",
 		thumbWidth, thumbHeight, thumbWidth, thumbHeight,
 	)
-	cmd := exec.Command("ffmpeg", "-y", "-loglevel", "error", "-i", src, "-vf", filter, "-frames:v", "1", dst)
+	cmd := exec.CommandContext(ctx, "ffmpeg", "-y", "-loglevel", "error", "-i", src, "-vf", filter, "-frames:v", "1", dst)
 	return cmd.Run()
 }
 

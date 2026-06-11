@@ -43,18 +43,6 @@ PanelWindow {
             onClicked: win.shell.cancel()
         }
 
-        Shortcut {
-            sequence: "Escape"
-            context: Qt.ApplicationShortcut
-            onActivated: win.shell.cancel()
-        }
-
-        Shortcut {
-            sequence: "Q"
-            context: Qt.ApplicationShortcut
-            onActivated: win.shell.cancel()
-        }
-
         Text {
             anchors.horizontalCenter: parent.horizontalCenter
             anchors.top: parent.top
@@ -83,7 +71,7 @@ PanelWindow {
 
             orientation: ListView.Horizontal
             model: win.shell.themes
-            spacing: 0
+            spacing: 6
             focus: true
             clip: false
 
@@ -98,10 +86,11 @@ PanelWindow {
                 height: list.height
                 themeName: modelData.name
                 thumbnailPath: modelData.thumbnail
+                imagePath: modelData.image || ""
+                fontFamily: modelData.font || ""
                 bgColor: (modelData.colors && modelData.colors.bg0) ? modelData.colors.bg0 : "#1a1610"
                 activeBorderColor: win.shell.activeBorder
                 inactiveBorderColor: win.shell.inactiveBorder
-                generated: modelData.generated === true
                 isCurrent: ListView.isCurrentItem
 
                 onChosen: {
@@ -114,6 +103,13 @@ PanelWindow {
                 win.shell.choose(win.shell.themes[currentIndex].path)
             Keys.onEnterPressed: if (currentIndex >= 0 && win.shell.themes.length > 0)
                 win.shell.choose(win.shell.themes[currentIndex].path)
+            Keys.onEscapePressed: win.shell.cancel()
+            Keys.onPressed: event => {
+                if (event.key === Qt.Key_Q) {
+                    win.shell.cancel();
+                    event.accepted = true;
+                }
+            }
         }
     }
 }

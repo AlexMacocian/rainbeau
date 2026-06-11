@@ -193,7 +193,7 @@ fi
 
 type TemperatureScriptGenerator struct{}
 
-func (TemperatureScriptGenerator) Name() string { return "Temperature Script" }
+func (TemperatureScriptGenerator) Name() string       { return "Temperature Script" }
 func (TemperatureScriptGenerator) OutputPath() string { return ".config/hypr/scripts/temperature.sh" }
 
 func (TemperatureScriptGenerator) Generate(theme *rainbeau.Theme, wallpapersDir string) (string, error) {
