@@ -1,0 +1,103 @@
+{
+  "name": "Theme Name",
+  "thumbnail": "theme-name/thumbnail.png",
+  "colors": {
+    "bg0": "#RRGGBB",
+    "bg1": "#RRGGBB",
+    "bg2": "#RRGGBB",
+    "bg3": "#RRGGBB",
+    "border": "#RRGGBB",
+    "accent1": "#RRGGBB",
+    "accent2": "#RRGGBB",
+    "text": "#RRGGBB",
+    "text_dim": "#RRGGBB",
+    "red": "#RRGGBB",
+    "green": "#RRGGBB",
+    "blue": "#RRGGBB",
+    "inactive": "#RRGGBB",
+    "saturation": 0.15
+  },
+  "hyprland": {
+    "border_size": 2,
+    "rounding": 4,
+    "gaps_in": 4,
+    "gaps_out": 16,
+    "shadow_range": 8,
+    "shadow_render_power": 3,
+    "blur_size": 5,
+    "blur_passes": 2,
+    "blur_vibrancy": 0.2,
+    "active_opacity": 1.0,
+    "inactive_opacity": 0.93,
+    "animation_speed_global": 12,
+    "animation_speed_border": 6,
+    "animation_speed_windows": 5.5,
+    "animation_speed_windows_in": 5,
+    "animation_speed_windows_out": 2,
+    "animation_speed_fade_in": 2.5,
+    "animation_speed_fade_out": 2,
+    "animation_speed_workspaces": 3
+  },
+  "font": {
+    "family": "JetBrainsMono Nerd Font",
+    "fallback": [
+      "FontAwesome",
+      "Roboto",
+      "sans-serif"
+    ],
+    "size": 12
+  },
+  "gtk": {
+    "color_scheme": "prefer-dark",
+    "theme": "Adwaita-dark"
+  },
+  "waybar": {
+    "height": 34,
+    "separator": "•",
+    "opacity": 0.82,
+    "border_width": 2,
+    "workspace_labels": [
+      "I",
+      "II",
+      "III",
+      "IV",
+      "V",
+      "VI",
+      "VII",
+      "VIII",
+      "IX",
+      "X"
+    ]
+  },
+  "wallpapers": {
+    "fit_mode": "cover",
+    "images": [
+      "theme-name/wallpaper-*.*"
+    ],
+    "videos": [
+      "theme-name/wallpaper.mp4"
+    ],
+    "lotties": [
+      "theme-name/animation.lottie"
+    ],
+    "shaders": [
+      {
+        "path": "theme-name/wallpaper.frag",
+        "duration_seconds": 20,
+        "fps": 30,
+        "width": 1920,
+        "height": 1080
+      }
+    ],
+    "cycle_interval": 300
+  },
+  "terminal": {
+    "opacity": 1.0,
+    "min_contrast": 7.0
+  },
+  "nvim": {
+    "colorscheme": "colorscheme-name",
+    "plugin": "owner/repo",
+    "name": "lazy-spec-name"
+  }
+}

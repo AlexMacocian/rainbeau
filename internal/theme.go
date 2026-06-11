@@ -4,6 +4,7 @@ import "encoding/json"
 
 type Theme struct {
 	Name       string            `json:"name"`
+	Thumbnail  string            `json:"thumbnail"`
 	Colors     ThemeColors       `json:"colors"`
 	Hyprland   HyprlandSettings  `json:"hyprland"`
 	Font       FontSettings      `json:"font"`

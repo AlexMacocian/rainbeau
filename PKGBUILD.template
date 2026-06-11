@@ -13,6 +13,7 @@ depends=(
     'hyprpaper'
     'kitty'
     'libnotify'
+    'quickshell'
     'rlottie'
     'waybar'
 )
