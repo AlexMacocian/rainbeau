@@ -176,12 +176,35 @@ func expandGlobs(patterns []string, baseDir string) ([]string, error) {
 func ensureOutputDirectory(outputDir string, outDir string) error {
 	pathToCheck := outDir
 	for pathToCheck != "" && strings.HasPrefix(pathToCheck, outputDir) && pathToCheck != outputDir {
-		if info, err := os.Stat(pathToCheck); err == nil && !info.IsDir() {
+		// Lstat, not Stat: Stat follows symlinks, so a *dangling* symlink looks
+		// like nothing is there at all. MkdirAll then fails with EEXIST because
+		// the link itself does exist. That is what happens when a dotfiles repo
+		// retires a config directory the user still has linked.
+		info, err := os.Lstat(pathToCheck)
+		if err != nil {
+			pathToCheck = filepath.Dir(pathToCheck)
+			continue
+		}
+
+		if info.Mode()&os.ModeSymlink != 0 {
+			// A symlink that still resolves is the normal dotfiles pattern
+			// (~/.config/kitty -> repo/.config/kitty) and must be written
+			// through, not replaced. Only clear it when it dangles.
+			if _, resolveErr := os.Stat(pathToCheck); resolveErr != nil {
+				if err := os.Remove(pathToCheck); err != nil {
+					return err
+				}
+			}
+			break
+		}
+
+		if !info.IsDir() {
 			if err := os.Remove(pathToCheck); err != nil {
 				return err
 			}
 			break
 		}
+
 		pathToCheck = filepath.Dir(pathToCheck)
 	}
 	return os.MkdirAll(outDir, 0o755)
