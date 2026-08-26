@@ -21,6 +21,25 @@ func retrobox() *rainbeau.Theme {
 	return th
 }
 
+// cantha mirrors the real light theme of the same name. Light themes exercise
+// the inverted contrast direction, where prominent text is darker rather than
+// lighter.
+func cantha() *rainbeau.Theme {
+	th := &rainbeau.Theme{Name: "Cantha"}
+	th.Colors = rainbeau.ThemeColors{
+		Bg0: "#F5EFF5", Bg1: "#EBE3ED", Bg2: "#DED5E2", Bg3: "#D0C5D5",
+		Border: "#B8267A", Accent1: "#A82888", Accent2: "#1F8050",
+		Text: "#0F0A1A", TextDim: "#3D3450", Red: "#B01515",
+		Green: "#1F7A45", Blue: "#1F6F88", Inactive: "#7A7088",
+	}
+	th.Font = rainbeau.FontSettings{Family: "JetBrainsMono Nerd Font", Size: 12}
+	th.Gtk = rainbeau.GtkSettings{ColorScheme: "prefer-light", Theme: "Adwaita"}
+	th.Hyprland = rainbeau.HyprlandSettings{Rounding: 6}
+	th.Waybar = rainbeau.WaybarSettings{Height: 34, Opacity: 0.88}
+	th.Shell = rainbeau.ShellSettings{Height: 34, Opacity: 0.88, Radius: 12}
+	return th
+}
+
 func generateOmniShell(t *testing.T, th *rainbeau.Theme) map[string]any {
 	t.Helper()
 	out, err := OmniShellConfigGenerator{}.Generate(th, "")
@@ -71,18 +90,34 @@ func TestOmniShellSectionOverridesWaybar(t *testing.T) {
 	}
 }
 
-// The shell renders a three-level text hierarchy. If active is not brighter
-// than foreground, focused items read as dimmer than unfocused ones.
+// The shell renders a three-level text hierarchy. Prominence is contrast
+// against the background, not raw lightness — so this must hold for light
+// themes (where prominent means darker) as well as dark ones.
 func TestOmniShellTextHierarchyIsOrdered(t *testing.T) {
-	colors := generateOmniShell(t, retrobox())["colors"].(map[string]any)
+	for _, tc := range []struct {
+		name  string
+		theme *rainbeau.Theme
+	}{
+		{"dark", retrobox()},
+		{"light", cantha()},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			colors := generateOmniShell(t, tc.theme)["colors"].(map[string]any)
+			bg := colors["background"].(string)
 
-	active := rainbeau.RelativeLuminance(colors["active"].(string))
-	foreground := rainbeau.RelativeLuminance(colors["foreground"].(string))
-	idle := rainbeau.RelativeLuminance(colors["idle"].(string))
+			active := rainbeau.ContrastRatio(colors["active"].(string), bg)
+			foreground := rainbeau.ContrastRatio(colors["foreground"].(string), bg)
+			idle := rainbeau.ContrastRatio(colors["idle"].(string), bg)
 
-	if !(active > foreground && foreground > idle) {
-		t.Errorf("want active > foreground > idle, got active=%v foreground=%v idle=%v",
-			active, foreground, idle)
+			// active may tie with foreground when the text colour is already at
+			// the contrast limit, but it must never fall below it.
+			if active < foreground {
+				t.Errorf("active is less prominent than foreground: active=%.2f foreground=%.2f", active, foreground)
+			}
+			if foreground <= idle {
+				t.Errorf("foreground is not more prominent than idle: foreground=%.2f idle=%.2f", foreground, idle)
+			}
+		})
 	}
 }
 
