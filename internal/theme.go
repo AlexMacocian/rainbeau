@@ -10,6 +10,7 @@ type Theme struct {
 	Font       FontSettings      `json:"font"`
 	Gtk        GtkSettings       `json:"gtk"`
 	Waybar     WaybarSettings    `json:"waybar"`
+	Shell      ShellSettings     `json:"shell"`
 	Wallpapers WallpaperSettings `json:"wallpapers"`
 	Terminal   TerminalSettings  `json:"terminal"`
 	Nvim       NvimSettings      `json:"nvim"`
@@ -77,6 +78,52 @@ type WaybarSettings struct {
 	Opacity         float64  `json:"opacity"`
 	BorderWidth     int      `json:"border_width"`
 	WorkspaceLabels []string `json:"workspace_labels"`
+}
+
+// ShellSettings describes the bar/panel surface for Quickshell-based shells
+// (omni-shell). Every field is optional and falls back to the equivalent
+// Waybar value, so existing themes that only declare a `waybar` section keep
+// working unchanged.
+type ShellSettings struct {
+	Height  int     `json:"height"`
+	Opacity float64 `json:"opacity"`
+	Radius  int     `json:"radius"`
+}
+
+// ShellHeight is the bar height in pixels.
+func (t *Theme) ShellHeight() int {
+	if t.Shell.Height > 0 {
+		return t.Shell.Height
+	}
+	if t.Waybar.Height > 0 {
+		return t.Waybar.Height
+	}
+	return 34
+}
+
+// ShellOpacity is the opacity of the bar and panel surfaces. Sharing the
+// Waybar value by default is deliberate: the shell should sit at the same
+// translucency as the rest of the themed desktop.
+func (t *Theme) ShellOpacity() float64 {
+	if t.Shell.Opacity > 0 {
+		return t.Shell.Opacity
+	}
+	if t.Waybar.Opacity > 0 {
+		return t.Waybar.Opacity
+	}
+	return 0.82
+}
+
+// ShellRadius is the corner radius of the bar and panel surfaces, derived from
+// the Hyprland window rounding when the theme does not set it explicitly.
+func (t *Theme) ShellRadius() int {
+	if t.Shell.Radius > 0 {
+		return t.Shell.Radius
+	}
+	if r := t.Hyprland.Rounding * 2; r > 0 {
+		return r
+	}
+	return 8
 }
 
 // WallpaperSettings describes the wallpapers to be used and how they should be rendered.

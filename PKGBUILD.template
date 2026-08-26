@@ -15,7 +15,6 @@ depends=(
     'libnotify'
     'quickshell'
     'rlottie'
-    'waybar'
 )
 makedepends=('go')
 optdepends=(
@@ -30,7 +29,9 @@ optdepends=(
     'mpvpaper: video, Lottie, and shader wallpapers'
     'neovim: generated Neovim colorscheme and live reload'
     'omni-launcher: generated Omni Launcher config'
+    'omni-shell: generated Omni Shell bar and panel theme'
     'quick-visor: generated Quick Visor theme'
+    'waybar: generated bar config and style'
     'wofi: generated launcher style'
     'jq: monitor discovery in generated wallpaper scripts'
     'bluez-utils: Bluetooth status script'

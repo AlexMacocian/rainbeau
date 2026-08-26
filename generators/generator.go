@@ -65,6 +65,7 @@ func ApplyTheme(theme *rainbeau.Theme, outputDir string, wallpaperDir string) er
 		HyprchatGenerator{},
 		HyprtoolkitGenerator{},
 		OmniLauncherConfigGenerator{},
+		OmniShellConfigGenerator{},
 		QuickVisorThemeGenerator{},
 		FirefoxGenerator{},
 		FirefoxThemeGenerator{},
@@ -205,10 +206,13 @@ func reloadThemeServices(theme *rainbeau.Theme) {
 	reloadNeovim(theme)
 
 	runCommand("hyprctl", "reload")
-	runCommand("killall", "-SIGUSR2", "waybar")
-	time.Sleep(300 * time.Millisecond)
-	if !isProcessRunning("waybar") {
-		runDetached("waybar")
+
+	// Only nudge waybar when it is already running. It used to be started
+	// unconditionally, which would resurrect the bar on every theme apply for
+	// setups that have moved to omni-shell (which needs no reload at all — it
+	// watches its generated config and re-themes live).
+	if isProcessRunning("waybar") {
+		runCommand("killall", "-SIGUSR2", "waybar")
 	}
 
 	runCommand("killall", "dunst")

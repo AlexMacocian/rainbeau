@@ -115,7 +115,11 @@ Rainbeau can use these tools when available:
 - `glslViewer` for GLSL shader wallpaper rendering
 - `notify-send` for desktop notifications
 - optional target apps for generated configs: Firefox, Neovim, VS Code, Wofi,
-  HyprChat, Hyprtoolkit, Omni Launcher, and Quick Visor
+  HyprChat, Hyprtoolkit, Omni Launcher, Omni Shell, and Quick Visor
+
+Omni Shell needs no reload: it watches its generated config and re-themes live.
+Waybar is only signalled when it is already running, so a setup that has moved
+to Omni Shell will not have the bar restarted underneath it.
 
 Generated Lottie and shader MP4 files are cached under:
 

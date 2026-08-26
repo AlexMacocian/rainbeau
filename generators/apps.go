@@ -104,6 +104,54 @@ func (OmniLauncherConfigGenerator) Generate(theme *rainbeau.Theme, wallpapersDir
 	return string(content) + "\n", err
 }
 
+type OmniShellConfigGenerator struct{}
+
+func (OmniShellConfigGenerator) Name() string       { return "Omni Shell Config" }
+func (OmniShellConfigGenerator) OutputPath() string { return ".config/omni-shell/config.json" }
+
+// Generate writes the theme input for omni-shell (the Quickshell bar,
+// notification centre and control centre).
+//
+// omni-shell watches this file with a FileView and re-themes live, so unlike
+// waybar it needs no reload or restart after a theme apply.
+func (OmniShellConfigGenerator) Generate(theme *rainbeau.Theme, wallpapersDir string) (string, error) {
+	c := theme.Colors
+	p := rainbeau.ResolvePalette(theme)
+	fnt := theme.Font
+
+	opacity := theme.ShellOpacity()
+	// Backdrops that must stay readable over a busy wallpaper sit above the
+	// panel opacity, but never past fully opaque.
+	opaque := math.Min(1.0, opacity+0.12)
+
+	config := map[string]any{
+		"fontFamily":    fnt.Family,
+		"fontSize":      int(math.Max(14, float64(fnt.Size+4))),
+		"padding":       5,
+		"spacing":       5,
+		"radius":        theme.ShellRadius(),
+		"barHeight":     theme.ShellHeight(),
+		"opacity":       opacity,
+		"opaqueOpacity": opaque,
+		"colors": map[string]any{
+			"background": c.Bg0,
+			"foreground": p.Text,
+			"idle":       p.TextDim,
+			// active must read brighter than foreground: the shell uses a
+			// three-level hierarchy (active > foreground > idle) for focused
+			// workspaces, connected devices and lit tiles. The palette's
+			// BrightWhite is tinted per-theme and can land darker than Text,
+			// which would invert that ordering.
+			"active": rainbeau.Lighten(p.Text, 0.12),
+			"accent": p.Accent1,
+			"border": p.Border,
+			"danger": p.Red,
+		},
+	}
+	content, err := json.MarshalIndent(config, "", "  ")
+	return string(content) + "\n", err
+}
+
 type QuickVisorThemeGenerator struct{}
 
 func (QuickVisorThemeGenerator) Name() string       { return "Quick Visor Theme" }
