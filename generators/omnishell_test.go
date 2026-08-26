@@ -70,6 +70,9 @@ func TestOmniShellInheritsWaybarSettings(t *testing.T) {
 	if got := m["opaqueOpacity"].(float64); got <= 0.82 || got > 1.0 {
 		t.Errorf("opaqueOpacity = %v, want above the panel opacity and at most 1.0", got)
 	}
+	if got := m["themeName"]; got != "Retrobox" {
+		t.Errorf("themeName = %v, want the theme's own name", got)
+	}
 }
 
 // An explicit `shell` section takes precedence over the waybar fallback.

@@ -130,6 +130,10 @@ func (OmniShellConfigGenerator) Generate(theme *rainbeau.Theme, wallpapersDir st
 	}
 
 	config := map[string]any{
+		// Lets the shell display which theme is active without reading the
+		// theme files itself. It arrives through the same watched config, so
+		// the name updates live along with the colours.
+		"themeName":     theme.Name,
 		"fontFamily":    fnt.Family,
 		"fontSize":      int(math.Max(14, float64(fnt.Size+4))),
 		"padding":       5,
