@@ -139,6 +139,7 @@ func (OmniShellConfigGenerator) Generate(theme *rainbeau.Theme, wallpapersDir st
 		"padding":       5,
 		"spacing":       5,
 		"radius":        theme.ShellRadius(),
+		"borderWidth":   theme.Hyprland.BorderSize,
 		"barHeight":     theme.ShellHeight(),
 		"opacity":       opacity,
 		"opaqueOpacity": opaque,
@@ -154,10 +155,11 @@ func (OmniShellConfigGenerator) Generate(theme *rainbeau.Theme, wallpapersDir st
 			// rather than always lightening — always lightening pushed light
 			// themes' active text toward the background and made focused items
 			// render fainter than unfocused ones.
-			"active": activeText,
-			"accent": p.Accent1,
-			"border": p.Border,
-			"danger": p.Red,
+			"active":          activeText,
+			"accent":          p.Accent1,
+			"border":          p.Border,
+			"borderSecondary": c.Accent2,
+			"danger":          p.Red,
 		},
 	}
 	content, err := json.MarshalIndent(config, "", "  ")

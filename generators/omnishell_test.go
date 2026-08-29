@@ -16,7 +16,7 @@ func retrobox() *rainbeau.Theme {
 		Green: "#b8bb26", Blue: "#83a598", Inactive: "#504945",
 	}
 	th.Font = rainbeau.FontSettings{Family: "JetBrainsMono Nerd Font", Size: 12}
-	th.Hyprland = rainbeau.HyprlandSettings{Rounding: 4}
+	th.Hyprland = rainbeau.HyprlandSettings{BorderSize: 2, Rounding: 4}
 	th.Waybar = rainbeau.WaybarSettings{Height: 34, Opacity: 0.82}
 	return th
 }
@@ -34,7 +34,7 @@ func cantha() *rainbeau.Theme {
 	}
 	th.Font = rainbeau.FontSettings{Family: "JetBrainsMono Nerd Font", Size: 12}
 	th.Gtk = rainbeau.GtkSettings{ColorScheme: "prefer-light", Theme: "Adwaita"}
-	th.Hyprland = rainbeau.HyprlandSettings{Rounding: 6}
+	th.Hyprland = rainbeau.HyprlandSettings{BorderSize: 2, Rounding: 6}
 	th.Waybar = rainbeau.WaybarSettings{Height: 34, Opacity: 0.88}
 	th.Shell = rainbeau.ShellSettings{Height: 34, Opacity: 0.88, Radius: 12}
 	return th
@@ -66,6 +66,13 @@ func TestOmniShellInheritsWaybarSettings(t *testing.T) {
 	}
 	if got := m["radius"]; got != float64(8) {
 		t.Errorf("radius = %v, want rounding*2 = 8", got)
+	}
+	if got := m["borderWidth"]; got != float64(2) {
+		t.Errorf("borderWidth = %v, want Hyprland border size 2", got)
+	}
+	colors := m["colors"].(map[string]any)
+	if got := colors["borderSecondary"]; got != "#fe8019" {
+		t.Errorf("borderSecondary = %v, want the second Hyprland active border color", got)
 	}
 	if got := m["opaqueOpacity"].(float64); got <= 0.82 || got > 1.0 {
 		t.Errorf("opaqueOpacity = %v, want above the panel opacity and at most 1.0", got)
